@@ -1,168 +1,138 @@
+#include <dirent.h>
+#include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
-#include <dirent.h>
+#include <unistd.h>
 #include <wait.h>
-#include <pwd.h>
 
-// #define MAX_INPUT 1024 // Longitud máxima de una línea.
+// #define MAX_INPUT 1024 - Comentado porque ya existe en limits.h
 #define ARG_MAX 32 // Cantidad máxima de argumentos.
 
 void mostrar_shell();
-int get_args(char* command, char* args[]);
-int comando_incorporado(char* args[], int argc);
-int comando_externo(char* args[], int argc);
+int get_args(char *command, char *args[]);
+int comando_incorporado(char *args[], int argc);
+int comando_externo(char *args[], int argc);
 
 char hostname[32];
-struct passwd* passwd;
+struct passwd *passwd; // Usuario que esta corriendo la shell.
 
 int main(void) {
-    char command[MAX_INPUT];
-    char* argv[ARG_MAX];
+  char command[MAX_INPUT];
+  char *argv[ARG_MAX];
 
-    gethostname(hostname, 32);
-    passwd = getpwuid(getuid());
+  gethostname(hostname, 32);
+  passwd = getpwuid(getuid());
 
-    printf("μsh - UADE Shell \n");
-    printf("Comandos incorporados: cd, pwd, exit\n");
+  printf("μsh - UADE Shell \n");
+  printf("Comandos incorporados: cd, pwd, exit\n");
 
-    while (1)
+  while (1) {
+    mostrar_shell();
+
+    int argc = 0;
+    fgets(command, sizeof(command), stdin);
+    command[strcspn(command, "\n")] =
+        '\0'; // Elimina el salto de línea al final del input.
+    // strcspn devuelve la longitud de la cadena hasta un \n, se reemplaza por
+    // el caracter nulo \0
+
+    if (strcmp(command, "") == 0) // Si no se ingresa nada
     {
-        mostrar_shell();
-
-        int argc = 0;
-        fgets(command, sizeof(command), stdin);
-        command[strcspn(command, "\n")] = '\0'; // Elimina el salto de línea al final del input.
-        // strcspn devuelve la longitud de la cadena hasta un \n, se reemplaza por el caracter nulo \0
-
-        if (strcmp(command, "") == 0) // Si no se ingresa nada
-        {
-            continue;
-        }
-
-        argc = get_args(command, argv);
-
-        if (!comando_incorporado(argv, argc))
-        {
-            comando_externo(argv, argc);
-        }
+      continue;
     }
 
+    argc = get_args(
+        command,
+        argv); // Establece los argumentos en argv y devuelve la cantidad.
+
+    if (!comando_incorporado(argv, argc)) {
+      comando_externo(argv, argc);
+    }
+  }
 }
 
-int get_args(char* command, char* args[])
-{
-    char* token = strtok(command, " \t");
+int get_args(char *command, char *args[]) {
+  char *token = strtok(command, " \t");
 
-    int i = 0;
-    for (i = 0; token != NULL; i++)
-    {
-        args[i] = token;
-        token = strtok(NULL, " \t");
-    }
+  int i = 0;
+  for (i = 0; token != NULL; i++) {
+    args[i] = token;
+    token = strtok(NULL, " \t");
+  }
 
-    args[i] = NULL; // NECESARIO PARA QUE EXECVP SEPA CUANDO TERMINA LA LISTA DE ARGUMENTOS!
-    return i;
+  args[i] = NULL; // NECESARIO PARA QUE EXECVP SEPA CUANDO TERMINA LA LISTA DE
+                  // ARGUMENTOS!
+  return i;
 }
 
-void mostrar_shell()
-{
-    char wd[MAX_INPUT];
+void mostrar_shell() {
+  char wd[MAX_INPUT];
 
-    if (getcwd(wd, MAX_INPUT) != NULL)
-    {
-        printf("(μsh) [%s@%s %s]$ ", passwd->pw_name, hostname, wd);
-    } else
-    {
-        printf("(μsh) [%s@%s ]$ ", passwd->pw_name, hostname);
-    }
+  if (getcwd(wd, MAX_INPUT) != NULL) {
+    printf("(μsh) [%s@%s %s]$ ", passwd->pw_name, hostname, wd);
+  } else {
+    printf("(μsh) [%s@%s ]$ ", passwd->pw_name, hostname);
+  }
 }
 
-void ls(char* argv[], int argc)
+int comando_incorporado(
+    char *args[],
+    int argc) // Si el comando es incorpotado devuelve 1, si no, 0.
 {
-    if (argc == 1) // Listar carpeta actual
-    {
-        printf("ASAAS");
-        char working_dir[MAX_INPUT];
-        getcwd(working_dir, MAX_INPUT);
 
-        DIR* dir = opendir(working_dir);
+  if (strcmp(args[0], "exit") == 0) {
+    printf("¡Nos vemos!");
+    exit(0);
+  }
 
-        while (dir != NULL)
-        {
-            printf("%s ", readdir(dir)->d_name);
-        }
-
-        closedir(dir);
+  if (strcmp(args[0], "cd") == 0) {
+    if (argc == 1) {
+      chdir(getenv("HOME"));
+      return 1;
     }
+
+    if (chdir(args[1]) == 0) {
+      return 1;
+    }
+
+    printf("cd: No existe el archivo o directorio: %s\n", args[1]);
+    return 1;
+  }
+
+  if (strcmp(args[0], "pwd") == 0) {
+    char working_dir[MAX_INPUT];
+
+    printf("%s \n", getcwd(working_dir, MAX_INPUT));
+    return 1;
+  }
+
+  return 0; // El comando no es incorporado
 }
 
-int comando_incorporado(char* args[], int argc)
-{
+int comando_externo(char *args[], int argc) {
+  pid_t pid = fork();
 
-    if (strcmp(args[0], "exit") == 0)
-    {
-        printf("¡Nos vemos!");
-        exit(0);
-    }
+  if (pid < 0) {
+    printf("No fue posible generar un proceso nuevo.");
+    return 1;
+  }
 
-    if (strcmp(args[0], "cd") == 0)
-    {
-        if (argc == 1)
-        {
-            chdir(getenv("HOME"));
-            return 1;
-        }
+  if (pid == 0) // EJECUCIÓN DEL PROCESO EXTERNO (hijo)
+  {
+    execvp(args[0],
+           args); // A diferencia de execve, execvp busca en el path del sistema
+                  // el binario y no requiere la ruta completa.
 
-        if (chdir(args[1]) == 0)
-        {
-            return 1;
-        }
+    // Si llegamos hasta aca, no se pudo correr la imagen en el proceso.
+    printf("μsh: comando no encontrado: %s \n", args[0]);
 
-        printf("cd: No existe el archivo o directorio: %s\n", args[1]);
-        return 1;
-    }
+  } else // EJECUCIÓN DEL PROCESO DE SHELL (padre)
+  {
+    int retorno;
 
-    if (strcmp(args[0], "ls") == 0)
-    {
-        //ls(args, argc);
-    }
+    waitpid(pid, &retorno, 0); // Espera a que termine el proceso hijo
+  }
 
-    if (strcmp(args[0], "pwd") == 0)
-    {
-        char working_dir[MAX_INPUT];
-
-        printf("%s \n", getcwd(working_dir, MAX_INPUT));
-        return 1;
-    }
-
-    return 0; // El comando no es incorporado
-}
-
-int comando_externo(char* args[], int argc)
-{
-    pid_t pid = fork();
-
-    if (pid < 0)
-    {
-        printf("No fue posible generar un proceso nuevo.");
-        return 1;
-    }
-
-    if (pid == 0) // EJECUCIÓN DEL PROCESO EXTERNO
-    {
-        execvp(args[0], args); // A diferencia de execve, execvp busca en el path del sistema el binario y no requiere la ruta completa.
-
-        // Si llegamos hasta aca, no se pudo correr la imagen en el proceso.
-        printf("μsh: comando no encontrado: %s \n", args[0]);
-    } else // EJECUCIÓN DEL PROCESO DE SHELL
-    {
-        int retorno;
-
-        waitpid(pid, &retorno, 0); // Espera a que termine el proceso hijo
-
-    }
-
-    return 0;
+  return 0;
 }
