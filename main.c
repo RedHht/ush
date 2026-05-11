@@ -4,9 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <wait.h>
+#include <sys/wait.h>
 
-// #define MAX_INPUT 1024 - Comentado porque ya existe en limits.h
+#define MAX_INPUT 1024
 #define ARG_MAX 32 // Cantidad máxima de argumentos.
 
 void mostrar_shell();
