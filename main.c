@@ -55,7 +55,9 @@ int main(void) {
     if (codigo_salida == -1) {
       running = 0;
     } else if (codigo_salida == 0) {
-      comando_externo(argv, argc);
+      if (comando_externo(argv, argc)) {
+	running = 0;
+      }
     }
   }
 
@@ -135,7 +137,8 @@ int comando_externo(char *args[], int argc) {
 
     // Si llegamos hasta aca, no se pudo correr la imagen en el proceso.
     printf("μsh: comando no encontrado: %s \n", args[0]);
-
+    
+    return 1; 
   } else // EJECUCIÓN DEL PROCESO DE SHELL (padre)
   {
     int retorno;
