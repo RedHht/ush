@@ -21,13 +21,17 @@ int main(void) {
   char command[MAX_INPUT];
   char *argv[ARG_MAX];
 
+  int running = 1;
+
   gethostname(hostname, 32);
   passwd = getpwuid(getuid());
+  pid_t PID_padre = getpid();
 
+  printf("El PID del proceso padre es: %d \n", PID_padre);
   printf("μsh - UADE Shell \n");
   printf("Comandos incorporados: cd, pwd, exit\n");
 
-  while (1) {
+  while (running) {
     mostrar_shell();
 
     int argc = 0;
@@ -46,10 +50,16 @@ int main(void) {
         command,
         argv); // Establece los argumentos en argv y devuelve la cantidad.
 
-    if (!comando_incorporado(argv, argc)) {
+    int codigo_salida = comando_incorporado(argv, argc);
+
+    if (codigo_salida == -1) {
+      running = 0;
+    } else if (codigo_salida == 0) {
       comando_externo(argv, argc);
     }
   }
+
+  return 0;
 }
 
 int get_args(char *command, char *args[]) {
@@ -76,14 +86,13 @@ void mostrar_shell() {
   }
 }
 
-int comando_incorporado(
-    char *args[],
-    int argc) // Si el comando es incorpotado devuelve 1, si no, 0.
+int comando_incorporado(char *args[],
+                        int argc) // Si el comando es incorpotado devuelve 1, si
+                                  // hay que terminar el programa -1, si no 0.
 {
 
   if (strcmp(args[0], "exit") == 0) {
-    printf("¡Nos vemos!");
-    exit(0);
+    return -1;
   }
 
   if (strcmp(args[0], "cd") == 0) {
