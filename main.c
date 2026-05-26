@@ -2,6 +2,7 @@
 #include <pwd.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <sys/wait.h>
 
@@ -15,6 +16,8 @@ int get_args(char *command, char *args[]);
 int comando_incorporado(char *args[], int argc);
 
 int comando_externo(char *args[], int argc);
+
+void procmem(char *args[], int argc);
 
 char hostname[32];
 struct passwd *passwd; // Usuario que esta corriendo la shell.
@@ -119,7 +122,83 @@ int comando_incorporado(char *args[],
         return 1;
     }
 
+    if (strcmp(args[0], "procmem") == 0) {
+        procmem(args, argc);
+        return 1;
+    }
+
     return 0; // El comando no es incorporado
+}
+
+void procmem(char *args[], int argc) {
+    if (argc == 1) {
+        printf("Ingrese un PID. Uso: procmem <pid> \n");
+        return;
+    }
+
+    int pid = atoi(args[1]);
+
+    if (pid <= 0)
+    {
+        printf("Ingrese un número de PID válido. Uso: procmem <pid> \n");
+        return;
+    }
+
+    char path[MAX_LENGTH];
+    sprintf(path, "/proc/%s/maps", args[1]);
+    
+    FILE* file = fopen(path, "r");
+    char buffer[500];
+
+    if (file == NULL) {
+        printf("No existe un proceso con ese PID. \n");
+        return;
+    }
+
+    printf("Mostrando mapeos de memoria del proceso: \n\n");
+
+    printf("Memoria Virtual                         Permisos  Offset    Device inode  Tipo  Archivo \n");
+
+    while (fgets(buffer, 500, file)) {
+        char memory[64] = "";
+        char permissions[64] = "";
+        char offset[64] = "";
+        char device[64] = "";
+        char inode[64] = "";
+        char charged_file[64] = "";
+        sscanf(buffer, "%s %s %s %s %s %s", memory, permissions, offset, device, inode, charged_file);
+
+        char *tipo = "";
+        if      (strcmp(charged_file, "[heap]") == 0)  tipo = "HEAP";
+        else if (strcmp(charged_file, "[stack]") == 0) tipo = "STACK";
+        else if (strcmp(charged_file, "[vdso]") == 0)  tipo = "VDSO";
+        else if (strcmp(charged_file, "[vvar]") == 0)  tipo = "VVAR";
+        else if (strstr(charged_file, ".so") != NULL)  tipo = "LIB";
+        else if (strlen(charged_file) > 0)             tipo = "BIN";
+        else                                           tipo = "ANON";
+
+        printf("%-39s %-9s %-9s %-6s %-6s %-5s %s\n", memory, permissions, offset, device, inode, tipo, charged_file);
+    }
+
+    fclose(file);
+
+    printf("\nMostrando consumo de memoria total: \n\n");
+
+    sprintf(path, "/proc/%s/status", args[1]);
+    
+    FILE* status = fopen(path, "r");
+
+    char line[256];
+    while (fgets(line, sizeof(line), status)) {
+        if (strncmp(line, "VmSize", 6) == 0)
+            printf("  Espacio virtual total:       %s", line + 7); // +7 saltea "VmSize:"
+        else if (strncmp(line, "VmRSS", 5) == 0)
+            printf("  En RAM fisica ahora mismo:   %s", line + 6); // +6 saltea "VmRSS:"
+        else if (strncmp(line, "VmSwap", 6) == 0)
+            printf("  Enviado a swap:              %s", line + 7); // +7 saltea "VmSwap:"
+    }
+
+    fclose(status);
 }
 
 int comando_externo(char *args[], int argc) {
