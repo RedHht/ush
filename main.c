@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 
 #define MAX_LENGTH 1024
 #define ARG_MAX 32 // Cantidad máxima de argumentos.
@@ -16,6 +17,8 @@ int get_args(char *command, char *args[]);
 int comando_incorporado(char *args[], int argc);
 
 int comando_externo(char *args[], int argc);
+
+void inode(char *args[], int argc);
 
 void procmem(char *args[], int argc);
 
@@ -34,7 +37,7 @@ int main(void) {
 
     printf("El PID del proceso padre es: %d \n", PID_padre);
     printf("μsh - UADE Shell \n");
-    printf("Comandos incorporados: cd, pwd, exit\n");
+    printf("Comandos incorporados: cd, pwd, procmem <pid>, inode <path>, exit\n");
 
     while (running) {
         mostrar_shell();
@@ -127,7 +130,35 @@ int comando_incorporado(char *args[],
         return 1;
     }
 
+    if (strcmp(args[0], "inode") == 0) {
+        inode(args, argc);
+        return 1;
+    }
+
     return 0; // El comando no es incorporado
+}
+
+void inode(char *args[], int argc) {
+    if (argc == 1) {
+        printf("Ingrese un archivo. Uso: inode <pid> \n");
+        return;
+    }
+
+    struct stat buffer;
+    if (stat(args[1], &buffer) == -1) {
+        printf("El archivo ingresado es invalido. \n");
+        return;
+    }
+
+    printf("################################################ \n"
+        "Analizando archivo \"%s\" \n\n"
+        "i-node: %lu \n"
+        "Dispositivo: %lu \n"
+        "ID del usuario dueño: %d \n"
+        "ID del grupo dueño: %d \n"
+        "Espacio total, en bytes: %ld \n\n"
+        "################################################ \n"
+        , args[1], buffer.st_ino, buffer.st_dev, buffer.st_uid, buffer.st_gid, buffer.st_size);
 }
 
 void procmem(char *args[], int argc) {
