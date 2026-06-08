@@ -290,6 +290,19 @@ void procmem(char *args[], int argc) {
     }
 
     fclose(status);
+
+    printf("\nMostrando estadisticas de E/S: \n\n");
+
+    sprintf(path, "/proc/%s/io", args[1]);
+
+    FILE* io = fopen(path, "r");
+
+    char line2[256];
+    while (fgets(line2, sizeof(line2), io)) {
+        printf("%s", line2);
+    }
+
+    fclose(io);
 }
 
 int comando_externo(char *args[], int argc) {
