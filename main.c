@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
+#include <sys/sysmacros.h>
 
 #define MAX_LENGTH 1024
 #define ARG_MAX 32 // Cantidad máxima de argumentos.
@@ -139,26 +140,85 @@ int comando_incorporado(char *args[],
 }
 
 void inode(char *args[], int argc) {
-    if (argc == 1) {
-        printf("Ingrese un archivo. Uso: inode <pid> \n");
-        return;
+  if (argc == 1) {
+    printf("Ingrese un archivo. Uso: inode <pid> \n");
+    return;
+  }
+
+  struct stat buffer;
+  if (stat(args[1], &buffer) == -1) {
+    printf("El archivo ingresado es invalido. \n");
+    return;
+  }
+
+  printf("################################################ \n"
+         "Analizando archivo \"%s\" \n\n"
+         "i-node: %lu \n"
+         "Dispositivo: %lu \n"
+         "ID del usuario dueño: %d \n"
+         "ID del grupo dueño: %d \n"
+         "Espacio total, en bytes: %ld \n\n",
+         args[1], buffer.st_ino, buffer.st_dev, buffer.st_uid, buffer.st_gid,
+         buffer.st_size, buffer.st_rdev);
+
+  if (buffer.st_rdev) {
+    // Logica de Dispositivo
+    unsigned long int maj = major(buffer.st_rdev);
+    unsigned long int min = minor(buffer.st_rdev);
+    unsigned long int es_block = S_ISBLK(buffer.st_mode);
+    unsigned long int es_caracter = S_ISCHR(buffer.st_mode);
+
+    printf("Este archivo es un dispositivo. \n"
+           "Major: %lu \n"
+           "Minor: %lu \n",
+           maj, min);
+    printf("Tipo de dispositivo: ");
+    if (es_block)
+      printf("Bloque \n");
+    if (es_caracter)
+      printf("Caracter \n");
+
+    if (maj == 1) {
+      printf("Tipo: Dispositivo de memoria.");
+    }
+    if (maj == 4) {
+      printf("Tipo: Dispositivo de terminal.");
+    }
+    if (maj == 5) {
+      printf("Tipo: Dispositivo de terminal alternativo / consola.");
+    }
+    if (maj == 7) {
+      printf("Tipo: Dispositivo de captura de consola virtual.");
+    }
+    if (maj == 8) {
+      printf("Tipo: Dispositivo de almacenamiento SCSI.");
+    }
+    if (maj == 9) {
+      printf("Tipo: Dispositivo de almacenamiento en RAID.");
+    }
+    if (maj == 11) {
+      printf("Tipo: Dispositivo de almacenamiento SCSI cd-rom.");
+    }
+    if (maj == 13) {
+      printf("Tipo: Dispositivo de entrada.");
+    }
+    if (maj == 29) {
+      printf("Tipo: Dispositivo de frame buffer.");
+    }
+    if (maj >= 136 && maj <= 143) {
+      printf("Tipo: Dispositivo de pseudo-terminal.");
+    }
+    if (maj == 179) {
+      printf("Tipo: Dispositivo de tarjeta SD.");
+    }
+    if (maj >= 252 && maj <= 259) {
+      printf("Tipo: Dispositivo de almacenamiento NVMe.");
     }
 
-    struct stat buffer;
-    if (stat(args[1], &buffer) == -1) {
-        printf("El archivo ingresado es invalido. \n");
-        return;
-    }
-
-    printf("################################################ \n"
-        "Analizando archivo \"%s\" \n\n"
-        "i-node: %lu \n"
-        "Dispositivo: %lu \n"
-        "ID del usuario dueño: %d \n"
-        "ID del grupo dueño: %d \n"
-        "Espacio total, en bytes: %ld \n\n"
-        "################################################ \n"
-        , args[1], buffer.st_ino, buffer.st_dev, buffer.st_uid, buffer.st_gid, buffer.st_size);
+  } else {
+    printf("Este archivo no es un dispositivo");
+  }
+  printf("\n################################################ \n");
 }
 
 void procmem(char *args[], int argc) {
